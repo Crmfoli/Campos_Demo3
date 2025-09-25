@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # ===================================================================================
 #   SIMULADOR WEB (VERSÃO FINAL - DADOS DE UMIDADE POR PROFUNDIDADE)
+#
+#   - Lê dados da planilha 'dados_sensores.xlsx' com a nova estrutura de profundidade.
 # ===================================================================================
 import os
 import traceback
@@ -10,7 +12,6 @@ import pandas as pd
 app = Flask(__name__)
 
 # --- CONFIGURAÇÃO ---
-# Mantendo o nome do arquivo que você pediu
 DATA_FILE = "dados_sensores.xlsx"
 dados_planilha = pd.DataFrame()
 current_index = 0
@@ -79,3 +80,4 @@ def api_dados_atuais():
 
 # --- INICIALIZAÇÃO ---
 carregar_dados_da_planilha()
+
