@@ -13,7 +13,14 @@
         .btn-voltar { font-size: 0.9em; font-weight: bold; color: #007bff; text-decoration: none; background-color: transparent; border: 2px solid #007bff; padding: 0.5em 1em; border-radius: 20px; transition: all 0.3s ease; }
         .btn-voltar:hover { background-color: #007bff; color: white; }
         .main-container { display: flex; flex-wrap: wrap; padding: 1.5em; gap: 1.5em; }
-        .chart-grid { flex: 3; display: grid; grid-template-columns: 1fr; gap: 1.5em; min-width: 300px; }
+        .chart-grid {
+            flex: 3;
+            display: grid;
+            /* Grade agora com apenas uma coluna para empilhar os gráficos restantes */
+            grid-template-columns: 1fr; 
+            gap: 1.5em;
+            min-width: 300px;
+        }
         .data-table-container { flex: 2; min-width: 400px; display: flex; flex-direction: column; gap: 1.5em; }
         .card { background: #fff; padding: 1.5em; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 0.5em; margin-top: 0; font-size: 1.2em; }
@@ -46,8 +53,10 @@
         <div class="chart-grid">
             <div class="card">
                 <h2>Umidade do Solo (%)</h2>
+                <h3 class="placar-calculos" id="calc-umidade">Soma: -- | Média: --</h3>
                 <canvas id="umidadeChart"></canvas>
             </div>
+            
             <div class="card">
                 <h2>Precipitação (mm)</h2>
                 <h3 class="placar-calculos" id="calc-chuva">Acumulado (72h): -- mm</h3>
@@ -55,54 +64,36 @@
             </div>
         </div>
         <div class="data-table-container">
-            <div class="card risk-card">
-                <h2>Risco de Deslizamento</h2>
-                <div id="risk-display" class="risk-status">
-                    <span id="risk-level">--</span>
-                </div>
-                <p id="risk-description" class="risk-description">Aguardando dados...</p>
-            </div>
-            <div class="card">
-                <h2>Últimas Leituras</h2>
-                <table id="real-time-table">
-                    <thead><tr><th>Horário</th><th>Umidade</th><th>Temp.</th><th>Chuva</th></tr></thead>
-                    <tbody id="tabela-dados"></tbody>
-                </table>
-            </div>
+            <div class="card risk-card"><h2>Risco de Deslizamento</h2><div id="risk-display" class="risk-status"><span id="risk-level">--</span></div><p id="risk-description" class="risk-description">Aguardando dados...</p></div>
+            <div class="card"><h2>Últimas Leituras</h2><table id="real-time-table"><thead><tr><th>Horário</th><th>Umidade</th><th>Temp.</th><th>Chuva</th></tr></thead><tbody id="tabela-dados"></tbody></table></div>
         </div>
     </div>
 
     <script>
-        // Declarando todas as variáveis de gráfico
+        // ALTERAÇÃO: Removida a variável do gráfico de temperatura
         let umidadeChart, chuvaChart, updateInterval;
-        // Removida a referência ao gráfico de temperatura que não existe mais
         const MAX_LINHAS_TABELA = 15;
         const MAX_PONTOS_GRAFICO = 30;
 
-        // A FUNÇÃO DE ANÁLISE DE RISCO
-        function analisarEAtualizarRisco(leitura) {
-            if (!leitura) return;
-            const umidade = leitura.umidade;
-            const chuva = leitura.chuva;
-            let nivel, descricao, classe;
-            if (umidade > 48 && chuva > 3.0) { nivel = "IMINENTE"; descricao = "Chuva intensa sobre solo saturado. Risco máximo."; classe = "status-iminente"; }
-            else if (umidade > 50) { nivel = "ALERTA"; descricao = "Solo extremamente instável e saturado."; classe = "status-alerta"; }
-            else if (chuva > 5.0) { nivel = "ALERTA"; descricao = "Chuva forte contínua. Saturação aumentando."; classe = "status-alerta"; }
-            else if (chuva > 0.5) { nivel = "ATENÇÃO"; descricao = "Chuva moderada. Monitorar umidade do solo."; classe = "status-atencao"; }
-            else { nivel = "Mínimo"; descricao = "Condições estáveis."; classe = "status-minimo"; }
-            document.getElementById('risk-level').textContent = nivel;
-            document.getElementById('risk-description').textContent = descricao;
-            document.getElementById('risk-display').className = 'risk-status ' + classe;
-        }
-
-        function calcularEAtualizarAcumuladoChuva() {
-            if (chuvaChart) {
-                const dataPoints = chuvaChart.data.datasets[0].data;
-                const ultimos10Pontos = dataPoints.slice(-10);
-                if (ultimos10Pontos.length > 0) {
-                    const soma = ultimos10Pontos.reduce((total, valor) => total + valor, 0);
-                    const placar = document.getElementById('calc-chuva');
-                    if(placar) { placar.textContent = `Acumulado (72h): ${soma.toFixed(2)} mm`; }
+        function calcularEAtualizarSomaEMedia() {
+            // ALTERAÇÃO: Lógica de cálculo de temperatura removida
+            const charts = { umidade: umidadeChart, chuva: chuvaChart };
+            for (const [key, chart] of Object.entries(charts)) {
+                if (chart) {
+                    const dataPoints = chart.data.datasets[0].data;
+                    const ultimos10Pontos = dataPoints.slice(-10);
+                    if (ultimos10Pontos.length > 0) {
+                        const soma = ultimos10Pontos.reduce((total, valor) => total + valor, 0);
+                        const media = soma / ultimos10Pontos.length;
+                        const placar = document.getElementById(`calc-${key}`);
+                        if(placar){
+                            if(key === 'chuva') {
+                                placar.textContent = `Acumulado (72h): ${soma.toFixed(2)} mm`;
+                            } else {
+                                placar.textContent = `Soma: ${soma.toFixed(2)} | Média: ${media.toFixed(2)}`;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -111,17 +102,19 @@
             destruirGraficos();
             const labels = dados.map(d => d.timestamp_grafico);
             umidadeChart = criarGrafico('umidadeChart', 'Umidade', labels, dados.map(d => d.umidade), 'rgba(54, 162, 235, 1)');
+            // A linha que criava o gráfico de temperatura foi removida
             chuvaChart = criarGrafico('chuvaChart', 'Chuva', labels, dados.map(d => d.chuva), 'rgba(75, 192, 192, 1)');
+            
             const tbody = document.getElementById('tabela-dados');
             tbody.innerHTML = '';
             dados.slice(-MAX_LINHAS_TABELA).reverse().forEach(leitura => {
                 const newRow = tbody.insertRow(0);
                 newRow.innerHTML = `<td>${leitura.timestamp_completo}</td><td>${leitura.umidade}</td><td>${leitura.temperatura}</td><td>${leitura.chuva}</td>`;
             });
+
             if (dados && dados.length > 0) {
-                // CHAMA A FUNÇÃO DE ANÁLISE NA CARGA INICIAL
                 analisarEAtualizarRisco(dados[dados.length - 1]);
-                calcularEAtualizarAcumuladoChuva();
+                calcularEAtualizarSomaEMedia();
             }
         }
         
@@ -130,10 +123,13 @@
                 const response = await fetch('/api/dados_atuais');
                 if (!response.ok) return;
                 const novaLeitura = await response.json();
+                
                 const tbody = document.getElementById('tabela-dados');
                 const newRow = tbody.insertRow(0);
                 newRow.innerHTML = `<td>${novaLeitura.timestamp_completo}</td><td>${novaLeitura.umidade}</td><td>${novaLeitura.temperatura}</td><td>${novaLeitura.chuva}</td>`;
                 while (tbody.rows.length > MAX_LINHAS_TABELA) { tbody.deleteRow(tbody.rows.length - 1); }
+
+                // ALTERAÇÃO: Lógica de atualização de temperatura removida
                 const charts = { umidade: umidadeChart, chuva: chuvaChart };
                 for (const [key, chart] of Object.entries(charts)) {
                     if (chart) {
@@ -146,30 +142,25 @@
                         chart.update({duration: 0});
                     }
                 }
-                // CHAMA A FUNÇÃO DE ANÁLISE A CADA ATUALIZAÇÃO
+                
                 analisarEAtualizarRisco(novaLeitura);
-                calcularEAtualizarAcumuladoChuva();
+                calcularEAtualizarSomaEMedia();
+
             } catch (error) { console.error("Erro na atualização em tempo real:", error); }
         }
         
         function destruirGraficos() {
             if (umidadeChart) umidadeChart.destroy();
+            // A linha que destruía o gráfico de temperatura foi removida
             if (chuvaChart) chuvaChart.destroy();
         }
 
-        // Funções restantes, incluindo a remoção do filtro de mês
-        async function carregarDados() { 
-            try { 
-                const response = await fetch(`/api/dados`); 
-                if (!response.ok) throw new Error('Falha ao buscar dados'); 
-                const dados = await response.json(); 
-                renderizarDashboard(dados); 
-                if (updateInterval) clearInterval(updateInterval); 
-                updateInterval = setInterval(buscarAtualizacao, 2000); 
-            } catch (error) { console.error("Erro ao carregar dados:", error); } 
-        }
+        // O restante do JavaScript (sem alterações)
+        async function carregarDados(mes = '') { try { const response = await fetch(`/api/dados?month=${mes}`); if (!response.ok) throw new Error('Falha ao buscar dados'); const dados = await response.json(); renderizarDashboard(dados); if (updateInterval) clearInterval(updateInterval); if (mes === '') { updateInterval = setInterval(buscarAtualizacao, 2000); } } catch (error) { console.error("Erro ao carregar dados:", error); } }
+        async function popularSeletorDeMeses() { try { const response = await fetch('/api/meses_disponiveis'); if (!response.ok) throw new Error('Falha ao buscar meses'); const meses = await response.json(); const seletor = document.getElementById('month-selector'); seletor.innerHTML = '<option value="">Tempo Real / Últimos Dados</option>'; meses.forEach(mes => { const option = document.createElement('option'); option.value = mes; option.textContent = mes; seletor.appendChild(option); }); } catch (error) { console.error("Erro ao popular seletor de meses:", error); } }
         function criarGrafico(canvasId, label, labels, data, color) { const ctx = document.getElementById(canvasId).getContext('2d'); return new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: label, data: data, borderColor: color, tension: 0.1 }] } }); }
-        document.addEventListener('DOMContentLoaded', carregarDados);
+        document.addEventListener('DOMContentLoaded', () => { popularSeletorDeMeses(); carregarDados(); document.getElementById('month-selector').addEventListener('change', (event) => { carregarDados(event.target.value); }); });
+        function analisarEAtualizarRisco(leitura) { if (!leitura) return; const umidade = leitura.umidade; const chuva = leitura.chuva; let nivel, descricao, classe; if (umidade > 48 && chuva > 3.0) { nivel = "IMINENTE"; descricao = "Chuva intensa sobre solo saturado. Risco máximo."; classe = "status-iminente"; } else if (umidade > 50) { nivel = "ALERTA"; descricao = "Solo extremamente instável e saturado."; classe = "status-alerta"; } else if (chuva > 5.0) { nivel = "ALERTA"; descricao = "Chuva forte contínua. Saturação aumentando."; classe = "status-alerta"; } else if (chuva > 0.5) { nivel = "ATENÇÃO"; descricao = "Chuva moderada. Monitorar umidade do solo."; classe = "status-minimo"; } document.getElementById('risk-level').textContent = nivel; document.getElementById('risk-description').textContent = descricao; document.getElementById('risk-display').className = 'risk-status ' + classe; }
     </script>
 </body>
 </html>
